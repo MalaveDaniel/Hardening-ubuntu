@@ -1,0 +1,381 @@
+---
+- name: Plan inicial de configuracion, ajustes y actualizaciones
+  hosts: all
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: 1.1.1. Verificar que el montaje del sistema de ficheros cramfs, usb-storage está deshabilitado y actualizar paquetes
+      block:
+
+        - name: 0.x Actualizar los paquetes del sistema operativo
+          ansible.builtin.command: "apt update -y"
+          when: "'updates' in apt_update.stdout"
+          ignore_errors: true
+
+        - name: 0.x Actualizar los paquetes del sistema operativo
+          ansible.builtin.command: "apt upgrade -y"
+          when: "'upgrades' in apt_upgrade.stdout"
+          ignore_errors: true          
+
+
+        - name: 1.1.1. Verificar modificar el fichero cramfs
+          ansible.builtin.shell: grep "install cramfs /bin/true" /etc/modprobe.d/cramfs.conf
+          ignore_errors: true
+          register: cramfs_stat
+
+        - name: 1.1.1. Crear o modificar el fichero cramfs
+          ansible.builtin.shell: >
+            grep -q "install cramfs /bin/true" /etc/modprobe.d/cramfs.conf ||
+            echo "install cramfs /bin/true" >> /etc/modprobe.d/cramfs.conf ||
+            echo "blacklist cramfs" >> /etc/modprobe.d/cramfs.conf
+          when: cramfs_stat.stdout == ""
+
+
+        - name: 1.1.1. Verificar modificar el fichero usb-storage
+          ansible.builtin.shell: grep "install usb-storage /bin/true" /etc/modprobe.d/usb-storage.conf
+          ignore_errors: true
+          register: usb-storage_stat
+
+        - name: 1.1.1. Crear o modificar el fichero usb-storage
+          ansible.builtin.shell: >
+            grep -q "install usb-storage /bin/false" /etc/modprobe.d/usb-storage.conf ||
+            echo "install usb-storage /bin/true" >> /etc/modprobe.d/usb-storage.conf  ||
+            echo "blacklist usb-storage" >> /etc/modprobe.d/usb-storage.conf ||
+            echo "blacklist usb-storage" >> /etc/modprobe.d/blacklist.conf
+          when: usb-storage_stat.stdout == ""          
+
+
+        - name: Respaldo de archivos de repositorios y añadir los de duo
+          ansible.builtin.shell: |
+            echo "Bloqueo de usuarios - NG-GUI-003 Versión 2.1 - Control N°12"
+            usermod -L bin
+            usermod -L daemon
+            usermod -L adm
+            usermod -L lp
+            usermod -L sync
+            usermod -L shutdown
+            usermod -L halt
+            usermod -L mail
+            usermod -L news
+            usermod -L uucp
+            usermod -L gopher
+            usermod -L ftp
+            usermod -L nobody
+            usermod -L nobody4
+            usermod -L noaccess
+            usermod -L vcsa
+            usermod -L rpm
+            usermod -L nscd
+            usermod -L ident
+            usermod -L netdump
+            usermod -L sshd
+            usermod -L rpc
+            usermod -L rpcuser
+            usermod -L nfsnodody
+            usermod -L mailnull
+            usermod -L smmsp
+            usermod -L svctag
+            usermod -L pcap
+            usermod -L apache
+            usermod -L webalizer
+            usermod -L postgres
+            usermod -L webservd
+            usermod -L squid
+            usermod -L xfs
+            usermod -L ntp
+            usermod -L gdm
+            usermod -L desktop
+            usermod -L named
+            usermod -L tty
+            ##### usuarios por defecto ubuntu #####
+            usermod -L sys
+            usermod -L games
+            usermod -L man
+            usermod -L proxy
+            usermod -L www-data
+            usermod -L backup
+            usermod -L list
+            usermod -L irc
+            usermod -L gnats
+            usermod -L systemd-network
+            usermod -L systemd-resolve
+            usermod -L messagebus
+            usermod -L _apt
+            usermod -L avahi_autoipd
+            usermod -L usbmux
+            usermod -L dnsmasq
+            usermod -L rtkit
+            usermod -L cups-pk-helper
+            usermod -L speech-dispatcher
+            usermod -L whoopsie
+            usermod -L kernoops
+            usermod -L saned
+            usermod -L pulse
+            usermod -L avahi
+            usermod -L colord
+            usermod -L hplip
+            usermod -L geoclue
+            #usermod -L gnome-initial-setup
+            usermod -L rwhod
+            usermod -L telnet
+
+            usermod -c "Network Time Protocol" ntp
+            usermod -c "Mail Tranfer Aaget User" postfix
+            usermod -c "User Premier Network Analysis Tool" tcpdump
+            usermod -c "User Network Time Protocol (NTP)" chrony
+            usermod -c "Tools Diagnose SELinux problems" setroubleshoot
+            usermod -c "GNOME Display Manager User" gdm
+            usermod -c "GNOME initial configuration" gnome-initial-setup
+            usermod -c "Automatic Bug Reporting Tool (ABRT)" abrt
+          when: grep_result.rc != 0
+          changed_when: false  
+
+
+    #- name: 1.1.2. Verificar la existencia de una partición separada para /tmp
+      #Se aplicó de forma manual
+
+    #- name: 1.1.3. Verificar que la opción nodev, nosuid y noexec están habilitadas en la partición /tmp
+      #Se aplicó de forma manual
+
+    #- name: 1.1.4. Verificar que existe una partición para /var
+      #Se aplicó de forma manual
+
+    #- name: 1.1.5. Verificar que existe una partición para /var/tmp
+
+    #- name: 1.1.6. Verificar que las opcion nodev esta configurada en la partición /var/tmp
+      #Se aplicó de forma manual
+
+    #- name: 1.1.7. Verificar que las opcion nosuid esta configurada en la partición /var/tmp
+      #Se aplicó de forma manual
+
+    #- name: 1.1.8. Verificar que las opcion noexec esta configurada en la partición /var/tmp
+      #Se aplicó de forma manual
+
+    #- name: 1.1.9. Verificar que existe una partición separada para /var/log
+      #Se aplicó de forma manual
+
+    #- name: 1.1.10. Verificar que existe una partición separada para /home
+      #Se aplicó de forma manual
+
+    #- name: 1.1.11. Verificar que esta configuirada la opción nodev en la partición /home
+      #Se aplicó de forma manual
+
+    #- name: 1.1.12. Verificar que la opción nodev, nosuid, noexec está habilitada en la partición /dev/shm
+      #Se aplicó de forma manual
+
+    #- name: 1.1.13. Verificar que las opciones nodev, nosuid y noexec estan configuradas en las particiones de medios extraíbles
+      #Se aplicó de forma manual
+
+    #- name: 1.1.14. Verificar que el sticky bit está habilitado en los directorios de donde todos los usuarios pueden escribir
+      #Se aplicó de forma manual
+
+    #- name: 1.1.15. Deshabilitar el montado automático
+      #Se aplicó de forma manual
+
+    
+    #- name: 1.3.2. Verificar que los comandos sudo usa pty
+      #Se aplicó de forma manual
+
+    #- name: 1.3.3. Verificar que existe un archivo de logs para sudo
+      #Se aplicó de forma manual
+
+    - name: 1.4.1. Verificar que AIDE está instalado
+      block:
+        - name: 1.4.1 Verificar que AIDE esté instalado
+          ansible.builtin.command: apt --installed list | grep aide
+          register: aide_check
+          failed_when: false
+          
+        - name: 1.4.1 Instalar AIDE
+          ansible.builtin.shell:
+            apt install aide aide-common -y
+          when: 'aide_check.stdout == " "'
+          failed_when: false
+
+
+    - name: 1.4.2. Verificar que la integridad del sistema de ficheros es chequeada regularmente #Se aplicó de manera manual
+      block:
+        - name: 1.4.2 Establecer crontab para root
+          ansible.builtin.shell: "echo '0 5 * * * /usr/bin/aide.wrapper --config /etc/aide/aide.conf' | crontab -u root -"
+
+        - name: 1.4.2 Verificar crontab para root
+          ansible.builtin.shell: "crontab -u root -l"
+          register: crontab_root
+
+        - name: 1.4.2 Agregar tarea a crontab si no existe
+          ansible.builtin.shell: "echo '0 5 * * * /usr/bin/aide.wrapper --config /etc/aide/aide.conf --check' >> /etc/crontab"
+          when: "' 0 5 * * * /usr/bin/aide.wrapper --config /etc/aide/aide.conf --check' not in crontab_root.stdout_lines"
+
+
+    # - name: 1.5.2. Verificar que la contraseña de bootloader está configurada
+    #Se aplicó de forma manual
+
+    #- name: 1.5.3. Verificar que se requiere autenticación para el modo de usuario único
+    #Se aplicó de forma manual
+
+    
+
+    - name: 1.5.4 Verificar que los volcados de memoria estén restringidos
+      block:
+
+        - name: 1.8.1 Verificar que el mensaje del día está configurado adecuadamente
+          ansible.builtin.shell: grep "#1.5.4" /etc/sysctl.conf
+          register: sysctl_stat
+          ignore_errors: true
+
+        - name: Respaldo de archivos de repositorios y añadir los de duo
+          ansible.builtin.shell: |
+            echo #1.5.4 Verificar que los volcados de memoria estén restringidos >> /etc/sysctl.conf
+            echo net.ipv6.conf.all.disable_ipv6=1 >> /etc/sysctl.conf
+            echo net.ipv6.conf.default.disable_ipv6=1 >> /etc/sysctl.conf
+            echo net.ipv6.conf.lo.disable_ipv6=1 >> /etc/sysctl.conf
+            echo fs.suid_dumpable = 0 >> /etc/sysctl.conf
+            echo net.ipv4.ip_forward = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.all.forwarding = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.send_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.send_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.accept_source_route = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.accept_source_route = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.all.accept_source_route = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.default.accept_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.accept_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.accept_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.all.accept_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.default.accept_source_route = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.secure_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.secure_redirects = 0 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.log_martians = 1 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.log_martians = 1 >> /etc/sysctl.conf
+            echo net.ipv4.icmp_echo_ignore_broadcasts = 1 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.log_martians = 1 >> /etc/sysctl.conf
+            echo net.ipv4.conf.all.rp_filter = 1 >> /etc/sysctl.conf
+            echo net.ipv4.conf.default.rp_filter = 1 >> /etc/sysctl.conf
+            echo net.ipv6.conf.all.accept_ra = 0 >> /etc/sysctl.conf
+            echo net.ipv6.conf.default.accept_ra = 0 >> /etc/sysctl.conf
+            echo net.ipv4.tcp_syncookies = 1 >> /etc/sysctl.conf
+          when: sysctl_stat.stdout == "" 
+           
+
+            #- name: 1.7.2. Verificar que SELinux noestá deshabilitado en la configuración de bootloader
+    # Se aplicó de forma manual
+
+######
+    - name: 1.8.1. Verificar que el mensaje del día está configurado adecuadamente
+      block:
+        - name: 1.8.1 Verificar que el mensaje del día está configurado adecuadamente
+          ansible.builtin.shell: grep "Venezuela S.A" /etc/motd
+          register: etcmod_stat
+          ignore_errors: true
+
+        - name: 1.8.1 Escribir el banner en /etc/motd
+          ansible.builtin.shell: |
+            echo "-----------------------------------------------------------------------------" >> /etc/motd
+            echo "| AVISO: ha accedido a un sistema restringido, propiedad de Banco de        |" >> /etc/motd
+            echo "| Venezuela S.A. Banco Universal.                                           |" >> /etc/motd
+            echo "| Necesita tener autorizacion antes de usarlo, estando usted limitado       |" >> /etc/motd
+            echo "| estrictamente al uso indicado en dicha autorizacion. El acceso no         |" >> /etc/motd
+            echo "| autorizado a este sistema o el uso indebido del mismo esta prohibido y    |" >> /etc/motd
+            echo "| es contrario a  la Politica de Seguridad corporativa y a la legislacion   |" >> /etc/motd
+            echo "| vigente.                                                                  |" >> /etc/motd
+            echo " ----------------------------------------------------------------------------" >> /etc/motd
+            echo " " >> /etc/motd
+          when: etcmod_stat.stdout == ""
+
+    - name: 1.8.2. Verificar que el mensaje del día está configurado adecuadamente
+      block:
+        - name: 1.8.2 Verificar que el mensaje del día está configurado adecuadamente
+          ansible.builtin.shell: grep "para acceder a este sistema necesita " /etc/issue
+          register: issue_stat
+          ignore_errors: true
+
+        - name: 1.8.2 Escribir el banner en /etc/issue
+          ansible.builtin.shell: |
+            echo "***************************************************************************************" >> /etc/issue
+            echo "**                           BANCO DE VENEZUELA                                      **" >> /etc/issue
+            echo "**  AVISO: para acceder a este sistema necesita estar previamente autorizado,        **" >> /etc/issue
+            echo "**  estando usted estrictamente limitado al uso indicado en dicha autorizacion. El   **" >> /etc/issue
+            echo "**  acceso no autorizado a este sistema o el uso indebido del mismo esta prohibido   **" >> /etc/issue
+            echo "**  y es contrario a la legislacion vigente. El uso que realice de este sistema      **" >> /etc/issue
+            echo "**  esta siendo monitoreado.                                                         **" >> /etc/issue
+            echo "***************************************************************************************" >> /etc/issue
+            echo " " >> /etc/issue
+          when: issue_stat.stdout == ""
+
+    - name: 1.8.3. Verificar que el mensaje del día está configurado adecuadamente
+      block:
+        - name: 1.8.3 Verificar que el mensaje del día está configurado adecuadamente
+          ansible.builtin.shell: grep "para acceder a este sistema" /etc/issue.net
+          register: issuenet_stat
+          ignore_errors: true
+
+        - name: 1.8.3 Escribir el banner en  /etc/issue.net
+          ansible.builtin.shell: |
+            echo "***************************************************************************************" >> /etc/issue.net
+            echo "**                            BANCO DE VENEZUELA                                     **" >> /etc/issue.net
+            echo "**  AVISO: para acceder a este sistema necesita estar previamente autorizado,        **" >> /etc/issue.net
+            echo "**  estando usted estrictamente limitado al uso indicado en dicha autorizacion. El   **" >> /etc/issue.net
+            echo "**  acceso no autorizado a este sistema o el uso indebido del mismo esta prohibido   **" >> /etc/issue.net
+            echo "**  y es contrario a la legislacion vigente. El uso que realice de este sistema      **" >> /etc/issue.net
+            echo "**  esta siendo monitoreado.                                                         **" >> /etc/issue.net
+            echo "***************************************************************************************" >> /etc/issue.net
+            echo "" >> /etc/issue.net
+          when: issuenet_stat.stdout == ""
+
+######
+
+    - name: 1.8.4. Verificar que los permisos en /etc/motd están configurados
+      block:
+        - name: 1.8.4 Comprobar permisos en /etc/motd
+          ansible.builtin.command: stat /etc/motd
+          register: stat_motd
+
+        - name: 1.8.4 Establecer permisos en /etc/motd
+          ansible.builtin.file:
+            path: /etc/motd
+            owner: root
+            group: root
+            mode: '0644'
+          when: "'Access: (0644/-rw-r--r--) Uid: ( 0/ root) Gid: ( 0/ root)' not in stat_motd.stdout"
+
+    - name: 1.8.5. Verificar que los permisos en /etc/issue están configurados
+      block:
+        - name: 1.8.5 Comprobar permisos en /etc/issue
+          ansible.builtin.command: stat /etc/issue
+          register: stat_issue
+
+        - name: 1.8.5 Establecer permisos en /etc/issue
+          ansible.builtin.file:
+            path: /etc/issue
+            owner: root
+            group: root
+            mode: '0644'
+          when: "'Access: (0644/-rw-r--r--) Uid: ( 0/ root) Gid: ( 0/ root)' not in stat_issue.stdout"
+
+    - name: 1.8.6. Verificar que los permisos en /etc/issue.net están configurados
+      block:
+        - name: 1.8.6 Comprobar permisos en /etc/issue.net
+          ansible.builtin.command: stat /etc/issue.net
+          register: stat_issue_net
+
+        - name: 1.8.6 Establecer permisos en /etc/issue.net
+          ansible.builtin.file:
+            path: /etc/issue.net
+            owner: root
+            group: root
+            mode: '0644'
+          when: "'Access: (0644/-rw-r--r--) Uid: ( 0/ root) Gid: ( 0/ root)' not in stat_issue_net.stdout"
+
+   #- name: 1.8.7. Verificar que esta configurado el banner del login de GDM 
+    # Se aplicó de forma manual
+
+    - name: 1.9. Verificar que actualizaciones, parches y software adiccional de seguridad está instalado
+      block:
+        - name: 1.9. Actualizar los paquetes de seguridad
+          ansible.builtin.command: "apt upgrade -y"
+          when: "'updates' in dnf_update.stdout"
+          ignore_errors: true
+          
+     #- name: 1.10. Verificar que la política de cifrado de todo el sistema no sea heredada
+    # Se aplicó de forma manual
+
