@@ -1,0 +1,214 @@
+---
+- name: Servicios
+  hosts: all
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: 2.1.1. Verificar que xserver-xorg no se encuentre instalado en el sistema
+      block:
+        - name: 2.1.1 Verificar si xinetd no está instalado
+          ansible.builtin.command: apt list --installed | grep xserver-xorg
+          register: xserver-xorg_check
+          failed_when: false
+
+        - name: 2.1.1 Eliminar xserver-xorg
+          ansible.builtin.apt:
+            name: xserver-xorg
+            state: absent
+          when: xserver-xorg_check.rc == 0
+
+
+    - name: 2.2.1. Verificar que la sincronización horaria está en uso
+      block:
+        - name: 2.2.1 Verificar que Chrony esté instalado
+          ansible.builtin.command: apt list --installed | grep chrony
+          register: chrony_check
+          failed_when: false
+
+        - name: 2.2.1 Instalar chrony
+          ansible.builtin.apt:
+            name: chrony
+            state: latest
+          when: 'chrony_check.stdout == "[installed]"'
+          failed_when: false
+   
+        - name: Verificar el estado del servicio Chrony
+          ansible.builtin.systemd:
+            name: chronyd
+            state: started
+            enabled: yes
+          register: chronyd_status
+
+        - name: Iniciar Chrony si está inactivo
+          ansible.builtin.systemd:
+            name: chronyd
+            state: started
+          when: chronyd_status.changed
+
+    - name: 2.2.2. Verificar que el sistema X Window no está instalado
+      block:
+        - name:  2.2.2 Verificar si xorg-x11 esta instalado
+          ansible.builtin.command: apt list --installed | grep 'xorg-x11*'
+          register: xorg_check
+          failed_when: false
+
+
+        - name:  2.2.2 Remover paquetes xorg-x11*
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: absent
+          with_items:
+            - xorg-x11*
+          when: xorg_check.rc == 0
+
+
+    - name: 2.2.2. Verificar que el servicio rsync no está habilitado
+      block:
+
+        - name: 2.2.2 Remover paquetes
+          ansible.builtin.apt:
+            name: rsync
+            state: absent
+            enabled: false
+
+
+    - name: 2.2.4. Verificar que el servidor Avahi no está habilitado
+      block:
+        - name: 2.2.4 purgar avahi si está habilitado
+          ansible.builtin.apt:
+            name: avahi-daemon
+            state: absent
+            enabled: false
+
+    - name: 2.2.6. Verificar que servidor squid
+      block:
+        - name: 2.2.6. purgar squid
+        - name: 2.2.2 Remover squid
+          ansible.builtin.apt:
+            name: squid
+            state: absent
+            enabled: false
+
+    - name: 2.2.7. Verificar que Samba no está habilitado
+      block:
+        - name: 2.2.7 purgar Samba
+          ansible.builtin.apt:
+            name: samba
+            state: absent
+            enabled: false
+
+
+    - name: 2.2.8. Verificar que el servicio IMAP y POP3 no está habilitado
+      block:
+        - name: 2.2.8 Verificar si el servicio IMAP y POP3 esta habilitado
+          ansible.builtin.command: systemctl is-enabled dovecot-imapd
+          register: dovecot-imapd_check
+          failed_when: false
+
+        - name: 2.2.8 purgar dovecot-imapd
+          ansible.builtin.apt:
+            name: dovecot-imapd
+            state: absent
+            enabled: false
+          when: dovecot-imapd_check.stdout == "enabled\n"
+
+
+
+
+
+
+        - name: 2.2.8 Verificar si el servicio IMAP y POP3 esta habilitado
+          ansible.builtin.command: systemctl is-enabled dovecot-pop3d
+          register: dovecot-pop3d_check
+          failed_when: false
+
+        - name: 2.2.8 purgar dovecot-pop3d
+          ansible.builtin.apt:
+            name: dovecot-pop3d
+            state: absent
+            enabled: false
+          when: dovecot-pop3d_check.stdout == "enabled\n"
+
+
+    - name: 2.2.9. Verificar que el servidor apache2 no este habilitado
+      block:
+        - name: 2.2.9 purgar el servidor HTTP
+          ansible.builtin.apt:
+            name: apache2
+            state: stopped
+            enabled: false
+          when: apache2_check.stdout == "enabled\n"
+
+
+    - name: . Verificar que el servidor bind9 no está habilitado
+      block:
+
+        - name:  purgar el servidor bind9
+          ansible.builtin.apt:
+            name: bind9
+            state: absent
+            enabled: false
+
+
+    - name: 2.2.11. Verificar que el servidor DNS no está habilitado
+      block:
+        - name:  purgar el servidor nfs-kernel-server
+          ansible.builtin.apt:
+            name: nfs-kernel-server
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor rpcbind
+          ansible.builtin.apt:
+            name: rpcbind
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor slapd
+          ansible.builtin.apt:
+            name: slapd
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor isc-dhcp-server
+          ansible.builtin.apt:
+            name: isc-dhcp-server
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor nis
+          ansible.builtin.apt:
+            name: nis
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor rsh-client
+          ansible.builtin.apt:
+            name: rsh-client
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor talk
+          ansible.builtin.apt:
+            name: talk
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor telnet
+          ansible.builtin.apt:
+            name: telnet
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor ldap-utils
+          ansible.builtin.apt:
+            name: ldap-utils
+            state: absent
+            enabled: false
+
+        - name:  purgar el servidor rpcbind
+          ansible.builtin.apt:
+            name: rpcbind
+            state: absent
+            enabled: false

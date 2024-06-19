@@ -1,0 +1,326 @@
+---
+- name: Configuracion de Red
+  hosts: all
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: 3.1.1. Verificar que el reenvío de IP está deshabilitado
+      block: 
+        - name: 3.1.1 Verificar el estado del reenvío IPv4 
+          ansible.builtin.command: sysctl net.ipv4.ip_forward
+          register: ipv4_forward_output
+        
+        - name: 3.1.1 Desactivar el reenvio IPv4
+          ansible.builtin.shell: |
+            echo "net.ipv4.ip_forward = 0" >> /etc/sysctl.conf
+            sysctl -w net.ipv4.ip_forward=0
+            sysctl -w net.ipv4.route.flush=1
+          when: "ipv4_forward_output.stdout.find('net.ipv4.ip_forward = 1') != -1"
+
+        - name: 3.1.1 Verificar el estado del reenvío IPv6 
+          ansible.builtin.command: sysctl net.ipv6.conf.all.forwarding
+          register: ipv6_forwardig_output
+
+        - name: 3.1.1 Desactivar el reenvio IPv4
+          ansible.builtin.shell: |
+            echo "net.ipv6.conf.all.forwarding = 0" >> /etc/sysctl.conf
+            sysctl -w net.ipv6.conf.all.forwarding=0
+            sysctl -w net.ipv6.route.flush=1
+          when: "ipv6_forwardig_output.stdout.find('net.ipv6.conf.all.forwarding = 1') != -1"
+   
+    - name: 3.1.2. Verificar que el envío de redirección de paquetes está deshabilitado
+      block:
+        - name: 3.1.2 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.send_redirects net.ipv4.conf.default.send_redirects
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.1.2 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.send_redirects = 0' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.send_redirects = 0' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.1.2 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.1.2 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+
+        - name: 3.1.2 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.send_redirects = 0
+              net.ipv4.conf.default.send_redirects = 0
+            marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+            create: yes
+          loop:
+            - "net.ipv4.conf.all.send_redirects = 0"
+            - "net.ipv4.conf.default.send_redirects = 0"
+          when: not already_configured | default(false)
+
+        - name: 3.1.2 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+    
+        - name: 3.1.2 Establecer los parámetros activos del kernel
+          ansible.builtin.shell: |
+            sysctl -w net.ipv4.conf.all.send_redirects=0
+            sysctl -w net.ipv4.conf.default.send_redirects=0
+            sysctl -w net.ipv4.route.flush=1
+
+    - name: 3.2.1 Verificar que los paquetes de origen enrutados no son aceptados
+      block:
+        - name: 3.2.1 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.accept_source_route net.ipv4.conf.default.accept_source_route net.ipv6.conf.all.accept_source_route net.ipv6.conf.default.accept_source_route
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.2.1 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.accept_source_route = 0' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.accept_source_route = 0' in current_sysctl_conf.stdout and 'net.ipv6.conf.all.accept_source_route = 0' in current_sysctl_conf.stdout and 'net.ipv6.conf.default.accept_source_route = 0' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.2.1 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.2.1 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+
+        - name: 3.2.1 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.accept_source_route = 0
+              net.ipv4.conf.default.accept_source_route = 0
+              net.ipv6.conf.all.accept_source_route = 0
+              net.ipv6.conf.default.accept_source_route = 0
+            marker: "# {mark} ANSIBLE MANAGED BLOCK ALL/DEFAULT SOURCE ROUTE"
+            create: yes
+          when: not already_configured | default(false)
+
+        - name: 3.2.1 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+
+        - name: 3.2.1 Establecer los parámetros activos del kernel
+          ansible.builtin.shell: |
+            sysctl -w net.ipv4.conf.all.accept_source_route=0
+            sysctl -w net.ipv4.conf.default.accept_source_route=0
+            sysctl -w net.ipv6.conf.all.accept_source_route=0
+            sysctl -w net.ipv6.conf.default.accept_source_route=0
+            sysctl -w net.ipv4.route.flush=1
+            sysctl -w net.ipv6.route.flush=1
+
+    - name: 3.2.2. Verificar que las redirecciones ICMP no son aceptadas
+      block:
+        - name: 3.2.2 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.accept_redirects net.ipv4.conf.default.accept_redirects net.ipv6.conf.all.accept_redirects net.ipv6.conf.default.accept_redirects
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.2.2 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.accept_redirects = 0' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.accept_redirects = 0' in current_sysctl_conf.stdout and 'net.ipv6.conf.all.accept_redirects = 0' in current_sysctl_conf.stdout and 'net.ipv6.conf.default.accept_redirects = 0' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.2.2 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.2.2 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+
+        - name: 3.2.2 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.accept_redirects = 0
+              net.ipv4.conf.default.accept_redirects = 0
+              net.ipv6.conf.all.accept_redirects = 0
+              net.ipv6.conf.default.accept_redirects = 0
+            marker: "# {mark} ANSIBLE MANAGED BLOCK ALL/DEFAULT ACCEPT REDIRECTS"
+            create: yes
+          when: not already_configured | default(false)
+
+        - name: 3.2.2 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+
+    - name: 3.2.3. Verificar que las redirecciones ICMP seguras no son aceptadas
+      block:
+        - name: 3.2.3 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.secure_redirects net.ipv4.conf.default.secure_redirects
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.2.3 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.secure_redirects = 0' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.secure_redirects = 0' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.2.3 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.2.3 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+
+        - name: 3.2.3 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.secure_redirects = 0
+              net.ipv4.conf.default.secure_redirects = 0
+            marker: "# {mark} ANSIBLE MANAGED BLOCK ALL Y DEFAULT SECURE REDIRECTS"
+            create: yes
+          when: not already_configured | default(false)
+
+        - name: 3.2.3 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+
+    - name: 3.2.4. Verificar que los paquetes sospechosos son registrados
+      block: 
+        - name: 3.2.4 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.log_martians net.ipv4.conf.default.log_martians
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.2.4 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.log_martians = 1' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.log_martians = 1' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.2.4 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.2.4 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+ 
+        - name: 3.2.4 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.log_martians = 1
+              net.ipv4.conf.default.log_martians = 1
+            marker: "# {mark} ANSIBLE MANAGED BLOCK ALL Y DEFAULT MARTIANS"
+            create: yes
+          when: not already_configured | default(false)
+
+        - name: 3.2.4 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+  
+    - name: 3.2.5. Verificar que la difusion de peticiones ICMP son ignoradas
+      block:
+        - name: 3.2.5 Comprobar estado de difusion de peticiones ICMP
+          ansible.builtin.command: sysctl net.ipv4.icmp_echo_ignore_broadcasts
+          register: ignore_broadcasts
+
+        - name: 3.2.5 Establecer los parámetros activos del kernel
+          ansible.builtin.shell: |
+            grep -Els "^\s*net\.ipv4\.icmp_echo_ignore_broadcasts\s*=\s*0" /etc/sysctl.conf /etc/sysctl.d/*.conf /usr/lib/sysctl.d/*.conf /run/sysctl.d/*.conf | while read filename; do sed -ri "s/^\s*(net\.ipv4\.icmp_echo_ignore_broadcasts\s*)(=)(\s*\S+\b).*$/# *REMOVED* \1/" $filename; done; sysctl -w net.icmp_echo_ignore_broadcasts=1; sysctl -w net.ipv4.route.flush=1
+          when: "ignore_broadcasts.stdout.split('=')[1] | trim | int != 1"
+
+    - name: 3.2.7. Verificar que el filtrado de ruta inversa está habilitado
+      block: 
+        - name: 3.2.7 Verificar estado actual de la configuración
+          ansible.builtin.shell: sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter
+          register: current_sysctl_conf
+          changed_when: false
+
+        - name: 3.2.7 Comprobar si la configuración ya está aplicada
+          ansible.builtin.set_fact:
+            already_configured: "{{ 'net.ipv4.conf.all.rp_filter = 1' in current_sysctl_conf.stdout and 'net.ipv4.conf.default.rp_filter = 1' in current_sysctl_conf.stdout }}"
+          when: current_sysctl_conf.stdout is defined
+
+        - name: 3.2.7 Si la configuración ya está aplicada, salta la tarea
+          ansible.builtin.debug:
+            msg: "3.2.7 La configuración ya está aplicada, se omiten los cambios."
+          when: already_configured | default(false)
+
+        - name: 3.2.7 Aplicar la configuración
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.conf
+            block: |
+              net.ipv4.conf.all.rp_filter = 1
+              net.ipv4.conf.default.rp_filter = 1
+            marker: "# {mark} ANSIBLE MANAGED BLOCK ALL RP Y DEFAULT RP"
+            create: yes
+          when: not already_configured | default(false)
+
+        - name: 3.2.7 Aplicar cambios
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+          when: not already_configured | default(false)
+
+
+            #  - name: 3.2.9. Verificar que no se acepten los anuncios del enrutador IPv6  
+
+    - name: 3.3.1. Verificar que DCCP, SCTP, RDS y TIPC están deshabilitados
+      block:
+        - name: 3.3.1 Eliminar el módulo DCCP
+          ansible.builtin.shell: >
+            grep -q "install dccp /bin/true" /etc/modprobe.d/dccp.conf ||
+            echo "install dccp /bin/true" >> /etc/modprobe.d/dccp.conf
+          changed_when: true
+
+        - name: 3.3.1 Eliminar el módulo SCTP
+          ansible.builtin.shell: >
+            grep -q "install sctp /bin/true" /etc/modprobe.d/sctp.conf ||
+            echo "install sctp /bin/true" >> /etc/modprobe.d/sctp.conf
+          changed_when: true
+
+        - name: 3.3.1 Eliminar el módulo RDS
+          ansible.builtin.shell: >
+            grep -q "install rds /bin/true" /etc/modprobe.d/rds.conf ||
+            echo "install rds /bin/true" >> /etc/modprobe.d/rds.conf
+          changed_when: true
+
+        - name: 3.3.1 Eliminar el módulo TIPC
+          ansible.builtin.shell: >
+            grep -q "install tipc /bin/true" /etc/modprobe.d/tipc.conf ||
+            echo "install tipc /bin/true" >> /etc/modprobe.d/tipc.conf
+          changed_when: true    
+
+    - name: Control. Verificar y aplicar configuraciones en /etc/sysctl.conf
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.conf
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "net.ipv4.conf.default.send_redirects = 0"
+        - "net.ipv4.conf.all.accept_source_route = 0"
+        - "net.ipv4.conf.default.accept_source_route = 0"
+        - "net.ipv6.conf.all.accept_source_route = 0"
+        - "net.ipv6.conf.default.accept_source_route = 0"
+        - "net.ipv4.conf.all.accept_redirects = 0"
+        - "net.ipv4.conf.default.accept_redirects = 0"
+        - "net.ipv6.conf.all.accept_redirects = 0"
+        - "net.ipv6.conf.default.accept_redirects = 0"
+        - "net.ipv4.conf.all.secure_redirects = 0"
+        - "net.ipv4.conf.default.secure_redirects = 0"
+        - "net.ipv4.conf.all.log_martians = 1"
+        - "net.ipv4.conf.default.log_martians = 1"
+        - "net.ipv4.conf.default.rp_filter = 1"
+        - "net.ipv6.conf.all.accept_ra = 0"
+        - "net.ipv6.conf.default.accept_ra = 0"
+        - "net.ipv6.conf.all.disable_ipv6 = 1"
+        - "net.ipv4.conf.all.rp_filter = 1"
+        - "net.ipv6.conf.all.accept_ra = 0"
+        - "net.ipv6.conf.default.accept_ra = 0"
+        - "net.ipv4.tcp_syncookies = 1"
+
+    - name: Control. Aplicar configuraciones del kernel. 3.2.9
+      ansible.builtin.shell: |
+        sysctl -w net.ipv6.conf.all.accept_ra=0
+        sysctl -w net.ipv6.conf.default.accept_ra=0
+        sysctl -w net.ipv4.tcp_syncookies=1
+        sysctl -w net.ipv4.route.flush=1 
+        sysctl -w net.ipv6.route.flush=1
+        sysctl -w net.ipv4.conf.all.accept_source_route=0
+        sysctl -w net.ipv4.conf.default.accept_source_route=0
+        sysctl -w net.ipv6.conf.all.accept_source_route=0
+        sysctl -w net.ipv6.conf.default.accept_source_route=0
+        sysctl -w net.ipv4.conf.all.send_redirects=0 
+        sysctl -w net.ipv4.conf.default.send_redirects=0

@@ -1,0 +1,68 @@
+---
+- name: Registro y auditoria
+  hosts: all
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: realizar actualizacion antes de instalar paqueteria necesaria
+      ansible.builtin.shell: |
+        apt update -y
+        apt upgrade -y
+
+    - name: 4.1.1. Instalar paqueteria pwquality
+      block:
+        - name: 4.1.1 verificar que el paquete pwquality este instalado
+          ansible.builtin.command: apt list | grep libpam-pwquality
+          register: libpam-pwquality_check
+          changed_when: false
+        
+        - name: 4.1.1 Instalar libpam-pwquality
+          ansible.builtin.yum:
+            name: libpam-pwquality
+            state: latest
+          when: "libpam-pwquality_check.rc != 0"
+
+
+    - name: 4.1.1. Instalar paqueteria aide
+      block:
+        - name: 4.1.1 verificar que el paquete aide este instalado
+          ansible.builtin.command: apt list | grep aide
+          register: aide_check
+          changed_when: false
+        
+        - name: 4.1.1 Instalar aide
+          ansible.builtin.yum:
+            name: aide
+            state: latest
+          when: "aide_check.rc != 0"
+
+
+    - name: 4.1.1. Instalar paqueteria aide-common
+      block:
+        - name: 4.1.1 verificar que el paquete aide-common este instalado
+          ansible.builtin.command: apt list | grep aide-common
+          register: aide-common_check
+          changed_when: false
+        
+        - name: 4.1.1 Instalar aide-common
+          ansible.builtin.yum:
+            name: aide-common
+            state: latest
+          when: "aide-common_check.rc != 0"
+
+
+    - name: Control. Aplicar configuraciones del kernel. 3.2.9
+      ansible.builtin.shell: |
+        sed -i 's/# minlen = 8/minlen = 14/' /etc/security/pwquality.conf
+        sed -i 's/# lcredit = 0/lcredit = -1/' /etc/security/pwquality.conf
+        sed -i 's/# ocredit = 0/ocredit = -1/' /etc/security/pwquality.conf
+        sed -i 's/# ucredit = 0/ucredit = -1/' /etc/security/pwquality.conf
+        sed -i 's/# dcredit = 0/dcredit = -1/' /etc/security/pwquality.conf
+        echo "# Audit Tools" >> /etc/aide/aide.conf 
+        echo "/sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
+        echo "/sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
+        echo "/sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
+        echo "/sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
+        echo "/sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
+        echo '/sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512"' >> /etc/aide/aide.conf 
