@@ -52,7 +52,7 @@
           when: "aide-common_check.rc != 0"
 
 
-    - name: Control. Aplicar configuraciones del kernel. 3.2.9
+    - name: Control. Aplicar configuraciones del kernel.
       ansible.builtin.shell: |
         sed -i 's/# minlen = 8/minlen = 14/' /etc/security/pwquality.conf
         sed -i 's/# lcredit = 0/lcredit = -1/' /etc/security/pwquality.conf
@@ -66,3 +66,48 @@
         echo "/sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
         echo "/sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512" >> /etc/aide/aide.conf 
         echo '/sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512"' >> /etc/aide/aide.conf 
+
+
+
+    - name: 4.2.1.5 Ensure logging is configured
+      ansible.builtin.shell: |
+        echo "*.emerg :omusrmsg:*" >> /etc/rsyslog.d/50-default.conf
+        echo "auth,authpriv.* /var/log/secure" >> /etc/rsyslog.d/50-default.conf
+        echo "mail.* -/var/log/mail" >> /etc/rsyslog.d/50-default.conf
+        echo "mail.info -/var/log/mail.info" >> /etc/rsyslog.d/50-default.conf
+        echo "mail.warning -/var/log/mail.warn" >> /etc/rsyslog.d/50-default.conf
+        echo "mail.err /var/log/mail.err" >> /etc/rsyslog.d/50-default.conf
+        echo "cron.* /var/log/cron" >> /etc/rsyslog.d/50-default.conf
+        echo "*.=warning;*.=err -/var/log/warn" >> /etc/rsyslog.d/50-default.conf
+        echo "*.crit /var/log/warn" >> /etc/rsyslog.d/50-default.conf
+        echo "*.*;mail.none;news.none -/var/log/messages" >> /etc/rsyslog.d/50-default.conf
+        echo "local0,local1.* -/var/log/localmessages" >> /etc/rsyslog.d/50-default.conf
+        echo "local2,local3.* -/var/log/localmessages" >> /etc/rsyslog.d/50-default.conf
+        echo "local4,local5.* -/var/log/localmessages" >> /etc/rsyslog.d/50-default.conf
+        echo "local6,local7.* -/var/log/localmessages" >> /etc/rsyslog.d/50-default.conf
+
+    - name: 4.2.1.7 Ensure rsyslog is not configured to receive logs from a remote client
+      ansible.builtin.shell: |
+        sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
+        sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
+        echo "Configurando rsyslog.conf..."
+        echo "*.emerg :omusrmsg:*" >> /etc/rsyslog.conf
+        echo "auth,authpriv.* /var/log/secure" >> /etc/rsyslog.conf
+        echo "mail.* -/var/log/mail" >> /etc/rsyslog.conf
+        echo "mail.info -/var/log/mail.info" >> /etc/rsyslog.conf
+        echo "mail.warning -/var/log/mail.warn" >> /etc/rsyslog.conf
+        echo "mail.err /var/log/mail.err" >> /etc/rsyslog.conf
+        echo "cron.* /var/log/cron" >> /etc/rsyslog.conf
+        echo "*.=warning;*.=err -/var/log/warn" >> /etc/rsyslog.conf
+        echo "*.crit /var/log/warn" >> /etc/rsyslog.conf
+        echo "*.*;mail.none;news.none -/var/log/messages" >> /etc/rsyslog.conf
+        echo "local0,local1.* -/var/log/localmessages" >> /etc/rsyslog.conf
+        echo "local2,local3.* -/var/log/localmessages" >> /etc/rsyslog.conf
+        echo "local4,local5.* -/var/log/localmessages" >> /etc/rsyslog.conf
+        echo "local6,local7.* -/var/log/localmessages" >> /etc/rsyslog.conf
+        systemctl restart rsyslog
+
+
+    - name: 4.4 Ensure logrotate assigns appropriate permissions
+      ansible.builtin.shell: |
+        echo "create 0640 root utmp" >> /etc/logrotate.conf

@@ -324,3 +324,6 @@
         sysctl -w net.ipv6.conf.default.accept_source_route=0
         sysctl -w net.ipv4.conf.all.send_redirects=0 
         sysctl -w net.ipv4.conf.default.send_redirects=0
+        sed -i '/limited/d' /etc/ntp.conf
+        echo "restrict -4 default kod nomodify notrap nopeer noquery" >> /etc/ntp.conf
+        echo "restrict -6 default kod nomodify notrap nopeer noquery" >> /etc/ntp.conf
